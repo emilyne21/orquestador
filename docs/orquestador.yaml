@@ -1,0 +1,132 @@
+openapi: 3.0.3
+info:
+  title: PharmaTrack - Orquestador API
+  version: 1.0.0
+  description: |
+    Orquesta datos entre Catálogo, Inventario y Recetas.
+servers:
+  - url: http://localhost:8085
+    description: Local
+
+tags:
+  - name: System
+  - name: Disponibilidad
+  - name: Validación
+
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /disponibilidad:
+    get:
+      tags: [Disponibilidad]
+      summary: Consulta disponibilidad por producto y distrito
+      parameters:
+        - in: query
+          name: id_producto
+          required: true
+          schema: { type: string, minLength: 1 }
+        - in: query
+          name: distrito
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  producto:
+                    oneOf:
+                      - { type: 'null' }
+                      - { $ref: '#/components/schemas/Producto' }
+                  sucursales:
+                    type: array
+                    items: { $ref: '#/components/schemas/StockItem' }
+        '400':
+          description: Parámetros inválidos
+        '502':
+          description: Error en servicios aguas arriba
+
+  /recetas/{id_receta}/validacion:
+    get:
+      tags: [Validación]
+      summary: Valida si hay stock suficiente para una receta
+      parameters:
+        - in: path
+          name: id_receta
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Resultado de validación
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_receta: { type: integer }
+                  estado_sugerido:
+                    type: string
+                    enum: [VALIDADA, PARCIAL, RECHAZADA]
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id_producto: { type: string }
+                        solicitado: { type: integer }
+                        disponible: { type: integer }
+                        id_sucursal_sugerida:
+                          oneOf:
+                            - { type: 'null' }
+                            - { type: integer }
+        '404':
+          description: Receta no existe
+        '502':
+          description: Error en servicios aguas arriba
+
+components:
+  schemas:
+    Producto:
+      type: object
+      properties:
+        _id: { type: string }
+        nombre: { type: string }
+        codigo_atc: { type: string, nullable: true }
+        requiere_receta: { type: boolean, nullable: true }
+        habilitado: { type: boolean }
+        keywords:
+          type: array
+          items: { type: string }
+        variantes:
+          type: array
+          items:
+            type: object
+            properties:
+              codigo_barras: { type: string }
+              forma_farmaceutica: { type: string, nullable: true }
+              concentracion_dosis: { type: string, nullable: true }
+              unidades_por_paquete: { type: integer, nullable: true }
+
+    StockItem:
+      type: object
+      properties:
+        id_sucursal: { type: integer }
+        id_producto: { type: string }
+        stock_actual: { type: integer }
+        umbral_reposicion: { type: integer }
+        fecha_actualizacion: { type: string, format: date-time }

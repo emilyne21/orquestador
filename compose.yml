@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  orquestador:
+    build: .
+    environment:
+      # En PROD: apúntalo al ALB para balancear entre MV Prod 1 y 2
+      INVENTARIO_URL: ${INVENTARIO_URL:-http://${ALB_DNS}:8082}
+      RECETAS_URL:    ${RECETAS_URL:-http://${ALB_DNS}:8083}
+      CATALOGO_URL:   ${CATALOGO_URL:-http://${ALB_DNS}:8084}
+      PORT: ${ORQUESTADOR_PORT:-8085}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      SERVE_DOCS: "1"              # <- activa swagger
+      # OPENAPI_FILE opcional (por defecto ./docs/orquestador.yaml)
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: ["CMD","wget","-qO-","http://localhost:8085/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
